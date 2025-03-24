@@ -6,9 +6,11 @@ import redis
 import json
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import csr_matrix
+import jsonpickle
+
 
 class RealTimeRecommender:
-    def __init__(self, redis_host='localhost', redis_port=6379, similarity_threshold=0.3):
+    def __init__(self, redis_host='redis', redis_port=6379, similarity_threshold=0.3):
         """
         Initialize the real-time recommender system.
         
@@ -147,6 +149,7 @@ class RealTimeRecommender:
                 continue
                 
             sim_user_items = self.redis_client.hgetall(f"user:{sim_user}:scores")
+            print("sim user items",sim_user_items)
             for item_id, score in sim_user_items.items():
                 if item_id not in user_items:  # Don't recommend items the user already interacted with
                     candidate_items[item_id] += float(score) * sim_score
@@ -223,8 +226,16 @@ class RealTimeRecommender:
             item_id: Item ID
             metadata: Dictionary of metadata (categories, tags, etc.)
         """
+
+        # Serialize metadata
+        serialized_metadata = {}
+    
+        for key, value in metadata.items():
+            # Serialize any complex data type
+            serialized_metadata[key] = jsonpickle.encode(value)
+
         # Store item metadata
-        self.redis_client.hmset(f"item:{item_id}:metadata", metadata)
+        self.redis_client.hset(f"item:{item_id}:metadata", mapping=serialized_metadata)
         
         # Update category indices
         if 'categories' in metadata:
